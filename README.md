@@ -1,9 +1,14 @@
-# rust-learning
+# Rust-Learning
 
 A cargo **workspace** for a focused Rust learning. Each concept we cover
 lives in its own numbered package folder, so every snippet is runnable,
 lintable, and testable on its own — while `cargo` treats the whole repo as one
 project.
+
+## Playground
+Want to try code quickly without setting anything up? Use the
+[online Rust Playground](https://play.rust-lang.org/) — no local
+project needed.
 
 ## Prerequisites
 
