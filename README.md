@@ -25,9 +25,11 @@ rust-learning/
 ├── 01-variables/       # one folder per concept
 │   ├── Cargo.toml      #   its own package manifest
 │   ├── notes.md        #   recap answers + what clicked, in my own words
-│   └── src/
-│       └── main.rs     #   runnable examples for this concept
-└── 02-.../             # added as we progress
+│   └── src/    
+│       └── bin /                   #  binary module
+│            ├── shadowing.rs       #  runnable examples for this concept
+│            └── next_main.rs       #  runnable examples for this concept
+└── 02-.../                         #  added as we progress
 ```
 
 The root `Cargo.toml` is just a container:
@@ -80,11 +82,29 @@ cargo build                 # compile everything
 `-p <package name>` selects a single member; omit it and most commands act on
 the whole workspace.
 
+`--bin <binary name>` selects a single member; omit it and most commands act on
+the whole workspace.
+
+
+## How To Run
+
+```sh
+cargo run -p <package-name> --bin <binary-name>
+```
+
+Example:
+
+```sh
+cargo run -p variables --bin shadowing
+```
+
 ## Progress index
 
 | Folder          | Concept                        | Status      |
 |-----------------|--------------------------------|-------------|
 | `01-variables`  | Variables, mutability, shadowing | In progress |
+
+
 
 ## Notes
 
