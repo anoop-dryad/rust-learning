@@ -79,23 +79,37 @@ cargo test                  # run tests across every package
 cargo build                 # compile everything
 ```
 
-`-p <package name>` selects a single member; omit it and most commands act on
-the whole workspace.
-
-`--bin <binary name>` selects a single member; omit it and most commands act on
-the whole workspace.
-
-
 ## How To Run
+
+Because this is a workspace with multiple packages — and each package can hold
+multiple binaries — a plain `cargo run` from the root won't know what to build.
+You point it at both the package and the binary:
 
 ```sh
 cargo run -p <package-name> --bin <binary-name>
 ```
 
+- `-p <package-name>` — which member package (the plain identifier, e.g.
+  `variables`, **not** the folder name `01-variables`).
+- `--bin <binary-name>` — which file under `src/bin/` (the filename without
+  `.rs`, e.g. `shadowing` for `src/bin/shadowing.rs`).
+
 Example:
 
 ```sh
 cargo run -p variables --bin shadowing
+```
+
+Shortcuts for when there's no ambiguity:
+
+```sh
+cargo run -p variables      # works only if the package has exactly one binary
+cargo run                   # works only if the whole workspace has one binary
+```
+
+If you leave out `--bin` when a package has several binaries, cargo will error
+and list the available ones — so a failed run doubles as a way to see your
+options.
 ```
 
 ## Progress index
