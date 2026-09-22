@@ -110,7 +110,7 @@ cargo run                   # works only if the whole workspace has one binary
 If you leave out `--bin` when a package has several binaries, cargo will error
 and list the available ones — so a failed run doubles as a way to see your
 options.
-```
+
 
 ## Progress index
 
