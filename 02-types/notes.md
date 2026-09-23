@@ -18,8 +18,17 @@
   and a **runtime check** (debug panics, release silently wraps).
 - `char` = a 4-byte **Unicode scalar** (any of ~1.1M symbols). `bool` = 1 byte.
 - Integer `/` **truncates** (`7/2 == 3`). Float `/` is real (`7.0/2.0 == 3.5`).
+- **known size -> STACK. growable size -> HEAP** (with a fixed-size handle on the stack).
+- `&str` = **borrow** (2 fields: ptr+len, points at read-only binary text, owns nothing).
+- `String` = **owner** (3 fields: ptr+len+cap, heap data, frees it at end of scope).
+- No garbage collector: **one owner** per heap value, freed automatically at scope end.
+  That rule IS ownership (Layer 3).
 
 ---
+
+=====================================================================
+# CHECK 1 — Scalar types
+=====================================================================
 
 ## Sizes — the bits vs bytes rule
 
@@ -120,6 +129,95 @@ Want a float result? Make both operands floats.
 
 ---
 
+
+=====================================================================
+# CHECK 2 — Stack vs Heap, Owner vs Borrow
+=====================================================================
+
+## The principle
+
+- **Known size at compile time -> STACK.** Fast, automatic, pushed/popped with scope.
+  (All scalars: a u8 is ALWAYS 1 byte, so the compiler reserves exact room.)
+- **Unknown / growable size -> HEAP.** The value's bytes live on the heap; a small
+  fixed-size handle (pointer + bookkeeping) lives on the stack.
+
+## &str (BORROW) vs String (OWNER) — the canonical example
+
+```rust
+let x: &str   = "Anoop";                 // borrow: points at text baked in the binary
+let y: String = String::from("Anoop");   // owner: holds a heap copy
+```
+
+Memory picture:
+```
+x: &str  (BORROW)                 y: String  (OWNER)
+[ ptr ] -> binary (read-only)     [ ptr ] -> heap: A n o o p
+[ len ]                           [ len ]      (y frees this at scope end)
+                                  [ cap ]
+2 fields; owns nothing;           3 fields; OWNS the heap data;
+grows nothing; frees nothing      can grow; frees it
+```
+
+**Owner vs reference (the model everything hinges on):**
+- **Owner** = holds the data, is RESPONSIBLE for freeing it at end of scope.
+- **Reference/borrow** = temporarily looks at data someone else owns; frees nothing.
+- A `String` is NOT "a pointer to a string" - it IS the string (it contains a
+  pointer internally, but it owns what that points to).
+
+## Two kinds of borrow (preview of Layer 3's central rule)
+
+```rust
+let r1: &T     = &v;      // SHARED (immutable) borrow  - can look, not change. MANY allowed.
+let r2: &mut T = &mut v;  // EXCLUSIVE (mutable) borrow - can change. ONLY ONE, no shared alongside.
+```
+The `mut` in `&mut` is not cosmetic: "one mutable XOR many shared" is the borrow
+checker's core law.
+
+5-type labeling result: i32=owner, &i32=shared borrow, String=owner,
+&mut String=**mutable** borrow, &str=shared borrow.
+
+## &str -> String must be EXPLICIT (it allocates + copies)
+
+```rust
+let x: String = "Anoop";        // ERROR[E0308]: expected String, found &str
+```
+Rust won't silently convert borrow -> owned (costs an allocation). Ask for it:
+```rust
+String::from("Anoop")   // most explicit; conversion written on the destination type
+"Anoop".to_string()     // idiomatic, string-specific
+"Anoop".to_owned()      // general "make the owned version of this borrow" (&str->String, &[T]->Vec<T>...)
+"Anoop".into()          // converts into whatever type is EXPECTED; needs target known from context
+```
+- `String::from(x)` and `x.into()` are the SAME conversion, opposite ends
+  (From written on destination, Into called on source).
+- `.into()` with no annotation fails: "type annotations needed" - it can't guess the target.
+- While learning: prefer `String::from` / `to_string`. Recognize `to_owned` and `into`.
+
+## len vs capacity
+
+- `len` = bytes actually used now. `capacity` = bytes allocated on heap. **capacity >= len always.**
+- One BIG push allocates exactly what's needed -> capacity ends up == len.
+- Many SMALL pushes -> capacity jumps AHEAD in steps (over-allocation, often doubling)
+  so the next few pushes don't reallocate each time. (Exact steps are a std impl detail.)
+
+## Sizes prove the field counts
+
+```
+size_of::<&str>()   == 16   // ptr + len            (2 * 8 on 64-bit)
+size_of::<String>() == 24   // ptr + len + capacity (3 * 8)
+size_of::<&i32>()   == 8    // just a pointer
+```
+
+## The doorway to ownership
+
+Heap values raise a question stack values don't: **who frees this, and when?**
+- Python/Java: a garbage collector, at a cost you don't control.
+- Rust: NO GC. Exactly **one owner**; when the owner goes out of scope, Rust frees
+  the heap memory - deterministically, at the closing `}`. That IS ownership (Layer 3).
+
+---
+
+
 ## Sticking points (my doubts -> the correction)
 
 **Q: "u8 uses 8 bytes? char 4 bytes, bool 1 byte — why does char have more?"**
@@ -138,6 +236,20 @@ operands the compiler proves the overflow and refuses to build — in both
 profiles, since compilation is identical. The debug-panic / release-wrap
 difference only applies to the *runtime* check, which you only reach when the
 compiler couldn't prove the value (hence `black_box` in the demo).
+
+**"both x and y are pointers to a string?"** No. `x` (&str) is a REFERENCE (borrows).
+`y` (String) is an OWNER (holds + frees). Both contain a pointer internally, but the
+meaning is opposite: borrow vs own.
+
+**"&mut String is just a borrower?"** True but incomplete - it's the MUTABLE/exclusive
+kind. Only one at a time; no shared borrows alongside it.
+
+**"to_owned vs into?"** to_owned = "own a copy of this borrow" (general). into =
+"convert into the expected type" (needs target known). Both reach String from &str.
+
+**println! inline `{name}` only works for a BARE variable** - not `{name.len()}` or
+expressions. For those use `{}` + argument: `println!("{}", name.len())`.
+`{:?}` = debug format (prints whole structures: arrays, tuples, later your own types).
 
 ---
 
@@ -162,6 +274,8 @@ cargo run -p types --bin scalars --release    # release build (overflow checks o
   checked/wrapping/saturating): https://doc.rust-lang.org/book/ch03-02-data-types.html
 - `std::mem::size_of`: https://doc.rust-lang.org/std/mem/fn.size_of.html
 - `std::hint::black_box`: https://doc.rust-lang.org/std/hint/fn.black_box.html
+- Book Ch 4.1 What Is Ownership? (stack/heap, String): https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html
+- Into / From traits: https://doc.rust-lang.org/std/convert/trait.Into.html , https://doc.rust-lang.org/std/convert/trait.From.html
 
 ---
 
@@ -173,3 +287,10 @@ cargo run -p types --bin scalars --release    # release build (overflow checks o
    between debug and release?
 4. What does `7 / 2` print? `7.0 / 2.0`?
 5. Which method returns an `Option` when addition might overflow?
+6. What decides stack vs heap for a value?
+7. What 3 fields does a String hold on the stack? Where do the characters live?
+8. &str vs String: which owns its bytes and frees them?
+9. &T vs &mut T - how many of each can you have at once?
+10. Why must "Anoop" -> String be written explicitly?
+11. len vs capacity - which can be larger, and why?
+12. Complete: `str` is to `String` as `[T; N]` is to ____ . (answer in Check 3)
