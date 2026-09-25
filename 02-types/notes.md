@@ -1,9 +1,9 @@
 # 02 — Types & the Stack
 
-> Layer 2. Status: **In progress** (Check 1 of 3 done).
-> Covered: scalar types, sizes, overflow, floats/bool/char, division.
-> Next: **Check 2 — stack vs heap** (the concept this layer is really about),
-> then Check 3 — compound types (tuple, array).
+
+> Layer 2. Status: **DONE** (all 3 checks).
+> (1) scalar types  (2) stack vs heap / owner vs borrow  (3) compound types.
+> Next: **Layer 3 — Ownership.**
 
 ---
 
@@ -218,6 +218,57 @@ Heap values raise a question stack values don't: **who frees this, and when?**
 ---
 
 
+=====================================================================
+# CHECK 3 — Compound types (tuple, array)
+=====================================================================
+
+## Both are FIXED-SIZE -> STACK (contrast with growable String/Vec).
+
+## Tuple — fixed group of MIXED types
+```rust
+let person: (String, i32, bool) = (String::from("Anoop"), 38, true);
+person.0            // access by position
+let (name, age, active) = &person;  // destructure (& borrows; no `&` MOVES the String)
+```
+- Fixed length: a 3-tuple != a 2-tuple (different type).
+- Each position's type baked in. (Python tuples: untyped + immutable; Rust: typed + fixed-len.)
+
+## Array — fixed number of the SAME type: `[T; N]`
+```rust
+let arr: [i32; 5] = [1, 2, 3, 4, 5];
+let zeros = [0; 3];   // [0, 0, 0]
+arr.len();            // 5
+arr[2];               // 3  (direct index)
+arr.get(10);          // None      <- safe
+arr.get(2);           // Some(3)   <- Some wrapping a &reference (Option<&T>)
+```
+- **LENGTH is part of the type:** `[i32; 5]` != `[i32; 4]`.
+- Out-of-bounds:
+  - CONSTANT bad index -> COMPILE error (`unconditional_panic` lint; provable).
+  - runtime bad index  -> PANIC "index out of bounds" (no negative indexing; index is usize).
+  - Safe access = `.get(i)` -> `Option<&T>`, never panics.
+- `{:?}` = debug format (print whole arrays/tuples/structs).
+
+## The rhyme (Layer 2 payoff)
+| fixed / stack | growable / heap / owned |
+|---|---|
+| `str`   (slice) | `String` |
+| `[T; N]` (array) | `Vec<T>` |
+Same principle twice: fixed-size-on-stack -> growable-owned-on-heap.
+```rust
+let mut v: Vec<i32> = vec![1, 2, 3];
+v.push(4);                       // grows (like String::push_str)
+let w: Vec<i32> = [10,20,30].into(); // array -> Vec
+```
+
+## The transferable principle (seen twice: overflow + indexing)
+If the compiler can PROVE an operation fails (constants it can see),
+it's a **compile-time hard error**. If it can't prove it, there's a
+**runtime check** (panic / Option) instead.
+
+---
+
+
 ## Sticking points (my doubts -> the correction)
 
 **Q: "u8 uses 8 bytes? char 4 bytes, bool 1 byte — why does char have more?"**
@@ -251,6 +302,8 @@ kind. Only one at a time; no shared borrows alongside it.
 expressions. For those use `{}` + argument: `println!("{}", name.len())`.
 `{:?}` = debug format (prints whole structures: arrays, tuples, later your own types).
 
+**`.get()` returns `Option<&T>`** - a borrow of the element, not ownership.
+
 ---
 
 ## Tooling learned
@@ -265,6 +318,7 @@ cargo run -p types --bin scalars --release    # release build (overflow checks o
   "never used" warning for an intentionally-uncalled item.
 - `#[deny(arithmetic_overflow)]` is **on by default** — provable overflow is a
   hard error, not a warning.
+- `{}` display vs `{:?}` debug; `vec![...]` macro
 
 ---
 
@@ -294,3 +348,7 @@ cargo run -p types --bin scalars --release    # release build (overflow checks o
 10. Why must "Anoop" -> String be written explicitly?
 11. len vs capacity - which can be larger, and why?
 12. Complete: `str` is to `String` as `[T; N]` is to ____ . (answer in Check 3)
+13. Tuple vs array - difference in what they hold?
+14. Why is `[i32; 5]` a different TYPE from `[i32; 4]`?
+15. Out-of-bounds: compile-time vs runtime - what decides which? Safe alternative?
+16. `str` : `String` :: `[T; N]` : ____   (answer: **Vec<T>**)
