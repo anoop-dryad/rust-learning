@@ -7,6 +7,10 @@ name = "ownership"
 version = "0.1.0"
 
 [[package]]
+name = "structs"
+version = "0.1.0"
+
+[[package]]
 name = "types"
 version = "0.1.0"
 
