@@ -11,6 +11,10 @@ name = "structs"
 version = "0.1.0"
 
 [[package]]
+name = "textstat"
+version = "0.1.0"
+
+[[package]]
 name = "types"
 version = "0.1.0"
 
