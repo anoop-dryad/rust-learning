@@ -1,4 +1,4 @@
-use std::fs;
+use std::{env, fs};
 
 #[derive(Debug)]
 struct TextStats {
@@ -35,9 +35,19 @@ impl TextStats {
 }
 
 fn main() {
-    let path = "../Cargo.toml";
-    let sample = fs::read_to_string(path);
-    match sample {
+    let args: Vec<String> = env::args().collect();
+
+    // args[0] is always the program name itself.
+    // args[1] is the first real argument (the file path).
+    let path = match args.get(1) {
+        Some(file_path) => file_path,
+        None => {
+            eprintln!("Usage: textstat <file_path>");
+            return;
+        }
+    };
+
+    match fs::read_to_string(path) {
         Ok(contents) => {
             let stats = TextStats::analyze(&contents);
             println!("{}", stats.summary());
