@@ -1,3 +1,5 @@
+use std::fs;
+
 #[derive(Debug)]
 struct TextStats {
     char_count: usize,
@@ -33,26 +35,21 @@ impl TextStats {
 }
 
 fn main() {
-    let samples = [
-        "the quick brown fox\njumps over the lazy dog",
-        "",
-        "my foot",
-        "my \n\n foot \n is \n on \n my \n way",
-    ];
+    let path = "../Cargo.toml";
+    let sample = fs::read_to_string(path);
+    match sample {
+        Ok(contents) => {
+            let stats = TextStats::analyze(&contents);
+            println!("{}", stats.summary());
 
-    for sample in samples {
-        let stats = TextStats::analyze(sample);
-
-        println!("\nSample : {}", sample);
-        println!("****************************************************************\n");
-        println!("{}", stats.summary());
-
-        let first_word = TextStats::first_word(sample);
-        match first_word {
-            Some(val) => println!("First Word : {val}"),
-            None => println!("No Words"),
+            let first_word = TextStats::first_word(&contents);
+            match first_word {
+                Some(val) => println!("First Word : {val}"),
+                None => println!("No Words"),
+            }
         }
-
-        println!("\n-------------------");
+        Err(e) => {
+            eprintln!("Error reading the {path} : {e}");
+        }
     }
 }
